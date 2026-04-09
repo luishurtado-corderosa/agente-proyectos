@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente de Proyectos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f6f3; --surface: #ffffff; --surface2: #f1f0ec;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --text: #1a1918; --text2: #6b6a67; --text3: #9e9d9a;
+    --accent: #2d6a4f; --accent-light: #e8f4ef;
+    --radius: 10px; --radius-lg: 14px;
+    --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --surface: #1e1d1b; --surface2: #272624;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+      --text: #f0efeb; --text2: #9e9d9a; --text3: #6b6a67;
+      --accent: #52b788; --accent-light: #1a2e23;
+    }
+  }
+  html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; }
+  #app { display: flex; height: 100vh; max-width: 1100px; margin: 0 auto; padding: 16px; gap: 14px; }
+
+  /* Sidebar */
+  #sidebar { width: 230px; display: flex; flex-direction: column; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; flex-shrink: 0; }
+  #sidebar-top { padding: 16px 14px 12px; border-bottom: 0.5px solid var(--border); }
+  #sidebar-top .logo { font-size: 13px; font-weight: 500; color: var(--text2); letter-spacing: 0.05em; }
+  #sidebar-top .logo span { color: var(--accent); }
+  #projects-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .proj-item { padding: 9px 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--text); transition: background 0.1s; border: 0.5px solid transparent; }
+  .proj-item:hover { background: var(--surface2); }
+  .proj-item.active { background: var(--surface2); border-color: var(--border2); }
+  .proj-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .proj-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj-badge { font-size: 11px; background: var(--surface2); color: var(--text2); padding: 1px 6px; border-radius: 10px; font-family: var(--mono); }
+  #add-proj-btn { margin: 8px; padding: 9px 10px; border-radius: 8px; border: 0.5px dashed var(--border2); background: transparent; color: var(--text2); font-size: 13px; font-family: var(--font); cursor: pointer; text-align: left; transition: all 0.1s; }
+  #add-proj-btn:hover { background: var(--surface2); color: var(--text); }
+  #settings-btn { margin: 0 8px 8px; padding: 7px 10px; border-radius: 8px; border: 0.5px solid var(--border); background: transparent; color: var(--text3); font-size: 12px; font-family: var(--font); cursor: pointer; text-align: left; }
+  #settings-btn:hover { color: var(--text2); background: var(--surface2); }
+
+  /* Main */
+  #main { flex: 1; display: flex; flex-direction: column; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; min-width: 0; }
+  #topbar { padding: 12px 16px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  #proj-title-bar { flex: 1; display: flex; align-items: center; gap: 8px; }
+  #proj-dot-bar { width: 10px; height: 10px; border-radius: 50%; display: none; }
+  #proj-name-bar { font-size: 15px; font-weight: 500; }
+  .tabs { display: flex; gap: 4px; }
+  .tab-btn { padding: 5px 13px; border-radius: 7px; border: 0.5px solid transparent; background: transparent; font-size: 13px; font-family: var(--font); cursor: pointer; color: var(--text2); transition: all 0.1s; }
+  .tab-btn:hover { background: var(--surface2); color: var(--text); }
+  .tab-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border); }
+
+  #content { flex: 1; overflow: hidden; }
+  .panel { display: none; flex-direction: column; height: 100%; }
+  .panel.visible { display: flex; }
+
+  .scroll-area { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .scroll-area::-webkit-scrollbar { width: 4px; }
+  .scroll-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: var(--text3); font-size: 14px; }
+  .empty-icon { font-size: 28px; margin-bottom: 4px; }
+
+  /* Notes */
+  .note-card { background: var(--surface2); border: 0.5px solid var(--border); border-radius: 9px; padding: 11px 13px; position: relative; }
+  .note-card:hover .del-btn { opacity: 1; }
+  .note-text { font-size: 14px; line-height: 1.65; color: var(--text); white-space: pre-wrap; padding-right: 20px; }
+  .note-date { font-size: 11px; color: var(--text3); margin-top: 7px; font-family: var(--mono); }
+
+  /* Todos */
+  .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border-radius: 9px; border: 0.5px solid var(--border); background: var(--surface); }
+  .todo-item.done { opacity: 0.5; }
+  .todo-item:hover .del-btn { opacity: 1; }
+  .todo-cb { width: 16px; height: 16px; margin-top: 2px; cursor: pointer; flex-shrink: 0; accent-color: var(--accent); }
+  .todo-text { flex: 1; font-size: 14px; line-height: 1.55; color: var(--text); }
+  .todo-item.done .todo-text { text-decoration: line-through; color: var(--text3); }
+  .pri { font-size: 10px; padding: 2px 7px; border-radius: 9px; font-weight: 500; flex-shrink: 0; margin-top: 3px; font-family: var(--mono); }
+  .p-high { background: #fcebeb; color: #a32d2d; }
+  .p-med { background: #faeeda; color: #854f0b; }
+  .p-low { background: #eaf3de; color: #3b6d11; }
+  @media (prefers-color-scheme: dark) {
+    .p-high { background: #2e1515; color: #f09595; }
+    .p-med { background: #2a2010; color: #ef9f27; }
+    .p-low { background: #1a2e10; color: #97c459; }
+  }
+
+  /* Chat */
+  #chat-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  #chat-msgs::-webkit-scrollbar { width: 4px; }
+  #chat-msgs::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  .msg { max-width: 86%; }
+  .msg.user { align-self: flex-end; }
+  .msg.assistant { align-self: flex-start; }
+  .bubble { padding: 10px 14px; border-radius: 13px; font-size: 14px; line-height: 1.65; }
+  .user .bubble { background: var(--accent-light); color: var(--text); border-bottom-right-radius: 3px; border: 0.5px solid rgba(0,0,0,0.07); }
+  .assistant .bubble { background: var(--surface2); color: var(--text); border-bottom-left-radius: 3px; border: 0.5px solid var(--border); }
+  .thinking { color: var(--text3); font-style: italic; }
+
+  /* Input bars */
+  .input-bar { padding: 10px 12px; border-top: 0.5px solid var(--border); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; background: var(--surface); }
+  .input-bar textarea { flex: 1; resize: none; border: 0.5px solid var(--border2); border-radius: 9px; padding: 8px 11px; font-size: 14px; font-family: var(--font); line-height: 1.5; background: var(--surface2); color: var(--text); max-height: 100px; overflow-y: auto; outline: none; transition: border-color 0.1s; }
+  .input-bar textarea:focus { border-color: var(--accent); }
+  .input-bar textarea::placeholder { color: var(--text3); }
+  .action-btn { padding: 8px 15px; border-radius: 9px; border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); font-size: 13px; font-family: var(--font); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.1s; }
+  .action-btn:hover { background: var(--border); }
+  .action-btn:disabled { opacity: 0.45; cursor: default; }
+  select.pri-sel { padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--surface2); color: var(--text); flex-shrink: 0; outline: none; }
+  .del-btn { background: transparent; border: none; cursor: pointer; color: var(--text3); font-size: 13px; padding: 3px 5px; opacity: 0; transition: opacity 0.1s, color 0.1s; border-radius: 5px; position: absolute; top: 8px; right: 8px; }
+  .del-btn:hover { color: #e24b4a; }
+  .todo-del { position: static; opacity: 0; }
+  .todo-item:hover .todo-del { opacity: 1; }
+
+  /* Overlay screens */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; z-index: 100; }
+  .overlay.open { display: flex; }
+  .overlay-box { background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 26px 26px 22px; width: 360px; display: flex; flex-direction: column; gap: 14px; }
+  .overlay-box h2 { font-size: 17px; font-weight: 500; }
+  .overlay-box p { font-size: 13px; color: var(--text2); line-height: 1.65; }
+  .overlay-box input { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border2); border-radius: 9px; font-size: 14px; font-family: var(--mono); background: var(--surface2); color: var(--text); outline: none; }
+  .overlay-box input:focus { border-color: var(--accent); }
+  .overlay-box a { color: var(--accent); text-decoration: none; }
+  .overlay-box a:hover { text-decoration: underline; }
+  .overlay-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .overlay-btns button { padding: 7px 16px; border-radius: 8px; border: 0.5px solid var(--border2); background: var(--surface2); font-size: 13px; font-family: var(--font); cursor: pointer; color: var(--text); }
+  .overlay-btns .primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .color-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .c-opt { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2.5px solid transparent; transition: transform 0.1s; }
+  .c-opt:hover { transform: scale(1.12); }
+  .c-opt.sel { border-color: var(--text); }
+
+  /* No API key banner */
+  #no-key-banner { display: none; background: #faeeda; border-bottom: 0.5px solid #f0c060; padding: 8px 16px; font-size: 13px; color: #854f0b; align-items: center; gap: 8px; }
+  @media (prefers-color-scheme: dark) { #no-key-banner { background: #2a2010; color: #ef9f27; border-color: #3a3010; } }
+  #no-key-banner button { margin-left: auto; padding: 4px 12px; border-radius: 6px; border: 0.5px solid #c09030; background: transparent; font-size: 12px; font-family: var(--font); cursor: pointer; color: #854f0b; }
+  @media (prefers-color-scheme: dark) { #no-key-banner button { color: #ef9f27; border-color: #604020; } }
+
+  @media (max-width: 640px) {
+    #app { padding: 0; gap: 0; flex-direction: column; height: auto; min-height: 100vh; }
+    #sidebar { width: 100%; border-radius: 0; border-left: none; border-right: none; border-top: none; }
+    #main { border-radius: 0; border: none; border-top: 0.5px solid var(--border); height: 80vh; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-top"><div class="logo">agente <span>●</span> proyectos</div></div>
+    <div id="projects-list"></div>
+    <button id="add-proj-btn">+ Nuevo proyecto</button>
+    <button id="settings-btn">⚙ Configurar API key</button>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="no-key-banner">
+      <span>⚠ Configura tu API key de Anthropic para usar el agente de chat.</span>
+      <button onclick="openApiModal()">Configurar</button>
+    </div>
+    <div id="topbar">
+      <div id="proj-title-bar">
+        <div id="proj-dot-bar"></div>
+        <span id="proj-name-bar" style="color:var(--text3);font-weight:400;font-size:14px">Selecciona un proyecto</span>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="chat">Agente</button>
+        <button class="tab-btn" data-tab="notes">Notas</button>
+        <button class="tab-btn" data-tab="todos">Pendientes</button>
+      </div>
+    </div>
+    <div id="content">
+      <!-- Chat -->
+      <div class="panel visible" id="panel-chat">
+        <div id="chat-msgs">
+          <div class="msg assistant"><div class="bubble">Hola! Soy tu agente de proyectos. Selecciona o crea un proyecto y cuéntame qué necesitas. Puedo agregar notas, crear pendientes, resumirte el estado o charlar sobre lo que estás trabajando.</div></div>
+        </div>
+        <div class="input-bar">
+          <textarea id="chat-input" rows="1" placeholder="Escríbeme sobre tu proyecto..."></textarea>
+          <button class="action-btn" id="chat-send-btn">Enviar</button>
+        </div>
+      </div>
+      <!-- Notes -->
+      <div class="panel" id="panel-notes">
+        <div class="scroll-area" id="notes-area"></div>
+        <div class="input-bar">
+          <textarea id="note-input" rows="2" placeholder="Escribe una nota..."></textarea>
+          <button class="action-btn" id="note-add-btn">Agregar</button>
+        </div>
+      </div>
+      <!-- Todos -->
+      <div class="panel" id="panel-todos">
+        <div class="scroll-area" id="todos-area"></div>
+        <div class="input-bar">
+          <textarea id="todo-input" rows="1" placeholder="Nuevo pendiente..."></textarea>
+          <select class="pri-sel" id="todo-pri">
+            <option value="med">Media</option>
+            <option value="high">Alta</option>
+            <option value="low">Baja</option>
+          </select>
+          <button class="action-btn" id="todo-add-btn">Agregar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API Key modal -->
+<div class="overlay" id="api-overlay">
+  <div class="overlay-box">
+    <h2>API key de Anthropic</h2>
+    <p>Necesitas una API key para que el agente de chat funcione. Se guarda solo en tu navegador y nunca sale de tu dispositivo.</p>
+    <input type="password" id="api-key-inp" placeholder="sk-ant-..." autocomplete="off" />
+    <p style="font-size:12px">¿No tienes una? <a href="https://console.anthropic.com/account/keys" target="_blank">Obtén una gratis en console.anthropic.com →</a></p>
+    <div class="overlay-btns">
+      <button id="api-cancel">Cancelar</button>
+      <button class="primary" id="api-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- New project modal -->
+<div class="overlay" id="proj-overlay">
+  <div class="overlay-box">
+    <h2>Nuevo proyecto</h2>
+    <input id="proj-name-inp" placeholder="Nombre del proyecto" maxlength="40" />
+    <div class="color-grid" id="color-grid"></div>
+    <div class="overlay-btns">
+      <button id="proj-cancel">Cancelar</button>
+      <button class="primary" id="proj-confirm">Crear</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#7F77DD','#1D9E75','#D85A30','#D4537E','#378ADD','#639922','#BA7517','#E24B4A','#52b788','#888780'];
+let projects = [], currentId = null, chatHistory = {}, selectedColor = COLORS[0], busy = false;
+
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function esc(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+function getProject(){return projects.find(p=>p.id===currentId)}
+function saveAll(){save('pa_projects',projects);save('pa_chat',chatHistory)}
+function getApiKey(){return localStorage.getItem('pa_apikey')||''}
+
+function init(){
+  projects = load('pa_projects',[]);
+  chatHistory = load('pa_chat',{});
+  updateKeyBanner();
+  renderSidebar();
+  if(projects.length>0) selectProject(projects[0].id);
+  buildColorGrid();
+}
+
+function updateKeyBanner(){
+  const banner = document.getElementById('no-key-banner');
+  banner.style.display = getApiKey() ? 'none' : 'flex';
+}
+
+function openApiModal(){
+  document.getElementById('api-key-inp').value = getApiKey();
+  document.getElementById('api-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('api-key-inp').focus(),60);
+}
+
+function renderSidebar(){
+  const list = document.getElementById('projects-list');
+  list.innerHTML='';
+  projects.forEach(p=>{
+    const el=document.createElement('div');
+    el.className='proj-item'+(p.id===currentId?' active':'');
+    const pending=(p.todos||[]).filter(t=>!t.done).length;
+    el.innerHTML=`<div class="proj-dot" style="background:${p.color}"></div><span class="proj-name">${esc(p.name)}</span>${pending>0?`<span class="proj-badge">${pending}</span>`:''}`;
+    el.onclick=()=>selectProject(p.id);
+    list.appendChild(el);
+  });
+}
+
+function selectProject(id){
+  currentId=id;
+  const p=getProject();
+  if(!p) return;
+  document.getElementById('proj-dot-bar').style.cssText=`background:${p.color};display:block`;
+  document.getElementById('proj-name-bar').textContent=p.name;
+  document.getElementById('proj-name-bar').style.cssText='font-weight:500;font-size:15px;color:var(--text)';
+  if(!chatHistory[id]) chatHistory[id]=[];
+  renderSidebar(); renderNotes(); renderTodos(); renderChat();
+}
+
+function renderNotes(){
+  const area=document.getElementById('notes-area');
+  const p=getProject();
+  if(!p){area.innerHTML='';return;}
+  const notes=p.notes||[];
+  if(notes.length===0){area.innerHTML='<div class="empty"><div class="empty-icon">📝</div><span>Sin notas aún</span></div>';return;}
+  area.innerHTML='';
+  notes.slice().reverse().forEach((n,ri)=>{
+    const i=notes.length-1-ri;
+    const card=document.createElement('div');
+    card.className='note-card';
+    card.innerHTML=`<button class="del-btn" data-i="${i}">✕</button><div class="note-text">${esc(n.text)}</div><div class="note-date">${n.date}</div>`;
+    card.querySelector('.del-btn').onclick=()=>{getProject().notes.splice(i,1);saveAll();renderNotes();};
+    area.appendChild(card);
+  });
+}
+
+function renderTodos(){
+  const area=document.getElementById('todos-area');
+  const p=getProject();
+  if(!p){area.innerHTML='';return;}
+  const todos=p.todos||[];
+  if(todos.length===0){area.innerHTML='<div class="empty"><div class="empty-icon">✅</div><span>Sin pendientes</span></div>';return;}
+  area.innerHTML='';
+  const open=todos.map((t,i)=>({...t,i})).filter(t=>!t.done);
+  const done=todos.map((t,i)=>({...t,i})).filter(t=>t.done);
+  [...open,...done].forEach(t=>{
+    const item=document.createElement('div');
+    item.className='todo-item'+(t.done?' done':'');
+    const pL={high:'Alta',med:'Media',low:'Baja'}[t.priority||'med'];
+    const pC={high:'p-high',med:'p-med',low:'p-low'}[t.priority||'med'];
+    item.innerHTML=`<input type="checkbox" class="todo-cb" ${t.done?'checked':''} data-i="${t.i}"><div class="todo-text">${esc(t.text)}</div><span class="pri ${pC}">${pL}</span><button class="del-btn todo-del">✕</button>`;
+    item.querySelector('.todo-cb').onchange=e=>{todos[t.i].done=e.target.checked;saveAll();renderTodos();renderSidebar();};
+    item.querySelector('.del-btn').onclick=()=>{todos.splice(t.i,1);saveAll();renderTodos();renderSidebar();};
+    area.appendChild(item);
+  });
+}
+
+function renderChat(){
+  const msgs=document.getElementById('chat-msgs');
+  const history=chatHistory[currentId]||[];
+  msgs.innerHTML='';
+  if(history.length===0){
+    addBubble('assistant',`Cuéntame sobre el proyecto <strong>${esc(getProject()?.name||'')}</strong>. Puedo agregar notas, crear pendientes o resumirte el estado actual.`);
+  } else {
+    history.forEach(m=>addBubble(m.role,esc(m.content),false));
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function addBubble(role,html,scroll=true){
+  const msgs=document.getElementById('chat-msgs');
+  const div=document.createElement('div');
+  div.className=`msg ${role}`;
+  div.innerHTML=`<div class="bubble">${html}</div>`;
+  msgs.appendChild(div);
+  if(scroll) msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+
+function buildSystem(){
+  const p=getProject();
+  if(!p) return 'Eres un agente de gestión de proyectos.';
+  const notes=(p.notes||[]).map((n,i)=>`${i+1}. ${n.text}`).join('\n')||'Sin notas';
+  const todos=(p.todos||[]).map((t,i)=>`${i+1}. [${t.done?'✓':'○'}] (${t.priority||'med'}) ${t.text}`).join('\n')||'Sin pendientes';
+  return `Eres un agente de gestión de proyectos para el proyecto "${p.name}".
+
+Estado actual:
+NOTAS:
+${notes}
+
+PENDIENTES:
+${todos}
+
+Tu trabajo es ayudar al usuario. Puedes: resumir el estado del proyecto, sugerir qué hacer a continuación, organizar ideas, priorizar tareas, y responder preguntas sobre el proyecto.
+
+Cuando el usuario quiera agregar una nota o pendiente, responde con una acción JSON al final de tu mensaje:
+ACTION:{"type":"add_note","text":"..."}
+ACTION:{"type":"add_todo","text":"...","priority":"high|med|low"}
+
+Responde siempre en español, de forma concisa y útil.`;
+}
+
+async function sendChat(){
+  if(!currentId){alert('Selecciona o crea un proyecto primero');return;}
+  const key=getApiKey();
+  if(!key){openApiModal();return;}
+  if(busy) return;
+  const input=document.getElementById('chat-input');
+  const text=input.value.trim();
+  if(!text) return;
+  input.value=''; input.style.height='';
+  busy=true;
+  document.getElementById('chat-send-btn').disabled=true;
+  chatHistory[currentId].push({role:'user',content:text});
+  addBubble('user',esc(text));
+  const thinkDiv=addBubble('assistant','<span class="thinking">Pensando...</span>');
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:buildSystem(),
+        messages:chatHistory[currentId].map(m=>({role:m.role,content:m.content}))
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    const fullText=(data.content||[]).map(b=>b.text||'').join('');
+    const actions=[...fullText.matchAll(/ACTION:(\{[^\n]+\})/g)];
+    const clean=fullText.replace(/ACTION:\{[^\n]+\}/g,'').trim();
+    thinkDiv.querySelector('.bubble').innerHTML=esc(clean);
+    chatHistory[currentId].push({role:'assistant',content:clean});
+    saveAll();
+    const p=getProject();
+    for(const m of actions){
+      try{
+        const a=JSON.parse(m[1]);
+        if(a.type==='add_note'&&a.text){
+          if(!p.notes) p.notes=[];
+          p.notes.push({text:a.text,date:new Date().toLocaleDateString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})});
+          renderNotes();
+        } else if(a.type==='add_todo'&&a.text){
+          if(!p.todos) p.todos=[];
+          p.todos.push({text:a.text,priority:a.priority||'med',done:false});
+          renderTodos(); renderSidebar();
+        }
+        saveAll();
+      }catch(e){}
+    }
+  } catch(e){
+    thinkDiv.querySelector('.bubble').innerHTML=`<span style="color:#e24b4a">Error: ${esc(e.message||'Intenta de nuevo')}</span>`;
+  }
+  busy=false;
+  document.getElementById('chat-send-btn').disabled=false;
+  document.getElementById('chat-msgs').scrollTop=99999;
+}
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('visible'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('visible');
+  };
+});
+
+// Note add
+document.getElementById('note-add-btn').onclick=()=>{
+  const inp=document.getElementById('note-input');
+  const t=inp.value.trim();
+  if(!t||!currentId) return;
+  const p=getProject();
+  if(!p.notes) p.notes=[];
+  p.notes.push({text:t,date:new Date().toLocaleDateString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})});
+  saveAll(); renderNotes(); inp.value='';
+};
+document.getElementById('note-input').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('note-add-btn').click();}};
+
+// Todo add
+document.getElementById('todo-add-btn').onclick=()=>{
+  const inp=document.getElementById('todo-input');
+  const t=inp.value.trim(); const pri=document.getElementById('todo-pri').value;
+  if(!t||!currentId) return;
+  const p=getProject();
+  if(!p.todos) p.todos=[];
+  p.todos.push({text:t,priority:pri,done:false});
+  saveAll(); renderTodos(); renderSidebar(); inp.value='';
+};
+document.getElementById('todo-input').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('todo-add-btn').click();}};
+
+// Chat send
+document.getElementById('chat-send-btn').onclick=sendChat;
+document.getElementById('chat-input').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}};
+
+// Auto-resize
+document.querySelectorAll('textarea').forEach(ta=>{
+  ta.oninput=function(){this.style.height='';this.style.height=Math.min(this.scrollHeight,100)+'px';};
+});
+
+// API modal
+function openApiModal(){document.getElementById('api-key-inp').value=getApiKey();document.getElementById('api-overlay').classList.add('open');setTimeout(()=>document.getElementById('api-key-inp').focus(),60);}
+document.getElementById('settings-btn').onclick=openApiModal;
+document.getElementById('api-cancel').onclick=()=>document.getElementById('api-overlay').classList.remove('open');
+document.getElementById('api-save').onclick=()=>{
+  const k=document.getElementById('api-key-inp').value.trim();
+  if(!k){localStorage.removeItem('pa_apikey');}
+  else if(!k.startsWith('sk-')){alert('La API key debe empezar con sk-');return;}
+  else{localStorage.setItem('pa_apikey',k);}
+  document.getElementById('api-overlay').classList.remove('open');
+  updateKeyBanner();
+};
+document.getElementById('api-key-inp').onkeydown=e=>{if(e.key==='Enter') document.getElementById('api-save').click();};
+document.getElementById('api-overlay').onclick=e=>{if(e.target===document.getElementById('api-overlay')) document.getElementById('api-overlay').classList.remove('open');};
+
+// Project modal
+function buildColorGrid(){
+  const grid=document.getElementById('color-grid');
+  grid.innerHTML='';
+  COLORS.forEach((c,i)=>{
+    const d=document.createElement('div');
+    d.className='c-opt'+(i===0?' sel':'');
+    d.style.background=c;
+    d.onclick=()=>{document.querySelectorAll('.c-opt').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');selectedColor=c;};
+    grid.appendChild(d);
+  });
+}
+document.getElementById('add-proj-btn').onclick=()=>{document.getElementById('proj-name-inp').value='';document.getElementById('proj-overlay').classList.add('open');setTimeout(()=>document.getElementById('proj-name-inp').focus(),60);};
+document.getElementById('proj-cancel').onclick=()=>document.getElementById('proj-overlay').classList.remove('open');
+document.getElementById('proj-confirm').onclick=()=>{
+  const name=document.getElementById('proj-name-inp').value.trim();
+  if(!name) return;
+  const id='p'+Date.now();
+  projects.push({id,name,color:selectedColor,notes:[],todos:[]});
+  saveAll(); document.getElementById('proj-overlay').classList.remove('open');
+  renderSidebar(); selectProject(id);
+};
+document.getElementById('proj-name-inp').onkeydown=e=>{if(e.key==='Enter') document.getElementById('proj-confirm').click();};
+document.getElementById('proj-overlay').onclick=e=>{if(e.target===document.getElementById('proj-overlay')) document.getElementById('proj-overlay').classList.remove('open');};
+
+init();
+</script>
+</body>
+</html>
