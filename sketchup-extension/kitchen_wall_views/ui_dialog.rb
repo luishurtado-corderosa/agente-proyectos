@@ -89,7 +89,7 @@ module KitchenWallViews
     HTML
 
     def initialize
-      @dialog = Sketchup::HtmlDialog.new(
+      @dialog = UI::HtmlDialog.new(
         dialog_title:    'Kitchen Wall Views',
         preferences_key: 'KitchenWallViews',
         width:           380,
