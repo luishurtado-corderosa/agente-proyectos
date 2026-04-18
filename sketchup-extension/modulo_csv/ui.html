@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Módulos CSV</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface2: #eeede9;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.2);
+    --text: #1a1918;
+    --text2: #6b6a67;
+    --text3: #9e9d9a;
+    --accent: #2d6a4f;
+    --accent-light: #e8f4ef;
+    --accent-dark: #235c42;
+    --red: #c0392b;
+    --red-light: #fdf0ee;
+    --radius: 8px;
+    --font: system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, 'SF Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100vh;
+  }
+
+  h1 { font-size: 15px; font-weight: 600; color: var(--text); }
+  h2 { font-size: 12px; font-weight: 600; color: var(--text2); letter-spacing: 0.05em; text-transform: uppercase; }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row label { font-size: 12px; color: var(--text2); min-width: 54px; }
+
+  input[type="text"], input[type="number"] {
+    padding: 6px 9px;
+    border: 0.5px solid var(--border2);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: var(--mono);
+    background: var(--surface2);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.1s;
+  }
+  input[type="text"] { flex: 1; }
+  input[type="number"] { width: 72px; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--text3); }
+
+  /* Dimension toggle sections */
+  .dim-section { display: flex; flex-direction: column; gap: 8px; }
+
+  .dim-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dim-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    width: 30px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border2);
+    border-radius: 17px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    left: 2px; top: 2px;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: white;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+  .toggle input:checked + .toggle-track::after { transform: translateX(13px); }
+
+  .dim-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-family: var(--mono);
+    background: var(--surface2);
+    color: var(--text2);
+    transition: all 0.15s;
+  }
+  .dim-badge.active { background: var(--accent-light); color: var(--accent); }
+
+  .dim-inputs {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding-left: 2px;
+  }
+  .dim-inputs .field { display: flex; flex-direction: column; gap: 3px; }
+  .dim-inputs .field span { font-size: 10px; color: var(--text3); font-weight: 500; letter-spacing: 0.03em; }
+  .dim-inputs .sep { color: var(--text3); font-size: 11px; margin-top: 12px; }
+
+  .dim-inputs.disabled input { opacity: 0.4; pointer-events: none; }
+
+  /* Preview */
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .count-badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    background: var(--accent-light);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 9px;
+    font-weight: 500;
+  }
+  .count-badge.empty { background: var(--surface2); color: var(--text3); }
+
+  #preview-list {
+    background: var(--surface2);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.8;
+    min-height: 80px;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre;
+  }
+  #preview-list::-webkit-scrollbar { width: 3px; }
+  #preview-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .preview-empty { color: var(--text3); font-style: italic; font-family: var(--font); }
+  .preview-more { color: var(--text3); font-size: 11px; margin-top: 4px; }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 8px; }
+  .btn {
+    flex: 1;
+    padding: 9px 14px;
+    border-radius: 7px;
+    border: 0.5px solid var(--border2);
+    font-size: 13px;
+    font-family: var(--font);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.1s;
+    text-align: center;
+  }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+  }
+  .btn-secondary:not(:disabled):hover { background: var(--surface2); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent-dark);
+  }
+  .btn-primary:not(:disabled):hover { background: var(--accent-dark); }
+
+  .btn-sketchup {
+    background: #c1272d;
+    color: white;
+    border-color: #a01f24;
+  }
+  .btn-sketchup:not(:disabled):hover { background: #a01f24; }
+
+  /* Error */
+  #error-msg {
+    display: none;
+    font-size: 12px;
+    color: var(--red);
+    background: var(--red-light);
+    border: 0.5px solid rgba(192,57,43,0.2);
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Nombre y Herraje -->
+<div class="card">
+  <h2>Módulo</h2>
+  <div class="row">
+    <label>Nombre *</label>
+    <input type="text" id="nombre" placeholder="Ej: Ajuste" oninput="schedulePreview()" />
+  </div>
+  <div class="row">
+    <label>Herraje</label>
+    <input type="text" id="herraje" placeholder="Opcional" oninput="schedulePreview()" />
+  </div>
+</div>
+
+<!-- Dimensiones -->
+<div class="card">
+  <h2>Dimensiones</h2>
+
+  <!-- W -->
+  <div class="dim-section">
+    <div class="dim-header">
+      <label class="toggle">
+        <input type="checkbox" id="w_enabled" onchange="toggleDim('w'); schedulePreview()" />
+        <span class="toggle-track"></span>
+      </label>
+      <span class="dim-label" onclick="document.getElementById('w_enabled').click()">
+        <span class="dim-badge" id="badge-w">W</span>
+        Ancho
+      </span>
+    </div>
+    <div class="dim-inputs disabled" id="inputs-w">
+      <div class="field">
+        <span>MÍNIMO</span>
+        <input type="number" id="w_min" value="10" min="0" oninput="schedulePreview()" />
+      </div>
+      <span class="sep">→</span>
+      <div class="field">
+        <span>MÁXIMO</span>
+        <input type="number" id="w_max" value="40" min="0" oninput="schedulePreview()" />
+      </div>
+      <span class="sep">±</span>
+      <div class="field">
+        <span>INTERVALO</span>
+        <input type="number" id="w_step" value="5" min="1" oninput="schedulePreview()" />
+      </div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="dim-section">
+    <div class="dim-header">
+      <label class="toggle">
+        <input type="checkbox" id="d_enabled" onchange="toggleDim('d'); schedulePreview()" />
+        <span class="toggle-track"></span>
+      </label>
+      <span class="dim-label" onclick="document.getElementById('d_enabled').click()">
+        <span class="dim-badge" id="badge-d">D</span>
+        Profundidad
+      </span>
+    </div>
+    <div class="dim-inputs disabled" id="inputs-d">
+      <div class="field">
+        <span>MÍNIMO</span>
+        <input type="number" id="d_min" value="30" min="0" oninput="schedulePreview()" />
+      </div>
+      <span class="sep">→</span>
+      <div class="field">
+        <span>MÁXIMO</span>
+        <input type="number" id="d_max" value="60" min="0" oninput="schedulePreview()" />
+      </div>
+      <span class="sep">±</span>
+      <div class="field">
+        <span>INTERVALO</span>
+        <input type="number" id="d_step" value="5" min="1" oninput="schedulePreview()" />
+      </div>
+    </div>
+  </div>
+
+  <!-- H -->
+  <div class="dim-section">
+    <div class="dim-header">
+      <label class="toggle">
+        <input type="checkbox" id="h_enabled" onchange="toggleDim('h'); schedulePreview()" />
+        <span class="toggle-track"></span>
+      </label>
+      <span class="dim-label" onclick="document.getElementById('h_enabled').click()">
+        <span class="dim-badge" id="badge-h">H</span>
+        Alto
+      </span>
+    </div>
+    <div class="dim-inputs disabled" id="inputs-h">
+      <div class="field">
+        <span>MÍNIMO</span>
+        <input type="number" id="h_min" value="30" min="0" oninput="schedulePreview()" />
+      </div>
+      <span class="sep">→</span>
+      <div class="field">
+        <span>MÁXIMO</span>
+        <input type="number" id="h_max" value="240" min="0" oninput="schedulePreview()" />
+      </div>
+      <span class="sep">±</span>
+      <div class="field">
+        <span>INTERVALO</span>
+        <input type="number" id="h_step" value="5" min="1" oninput="schedulePreview()" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview -->
+<div class="card">
+  <div class="preview-header">
+    <h2>Vista previa</h2>
+    <span class="count-badge empty" id="count-badge">0 códigos</span>
+  </div>
+  <div id="preview-list"><span class="preview-empty">Configura un nombre y activa al menos una dimensión.</span></div>
+</div>
+
+<!-- Error -->
+<div id="error-msg"></div>
+
+<!-- Acciones -->
+<div class="btn-row">
+  <button class="btn btn-secondary" id="btn-csv" onclick="doGenCSV()" disabled>
+    Descargar CSV
+  </button>
+  <button class="btn btn-sketchup" id="btn-tags" onclick="doCreateTags()" disabled>
+    Crear Tags en SketchUp
+  </button>
+</div>
+
+<script>
+  const MAX_PREVIEW = 50;
+  let debounceTimer = null;
+  let currentCodes = [];
+
+  function toggleDim(dim) {
+    const enabled = document.getElementById(dim + '_enabled').checked;
+    const inputs  = document.getElementById('inputs-' + dim);
+    const badge   = document.getElementById('badge-' + dim);
+    if (enabled) {
+      inputs.classList.remove('disabled');
+      badge.classList.add('active');
+    } else {
+      inputs.classList.add('disabled');
+      badge.classList.remove('active');
+    }
+  }
+
+  function getFormData() {
+    return {
+      nombre:    document.getElementById('nombre').value.trim(),
+      herraje:   document.getElementById('herraje').value.trim(),
+      w_enabled: document.getElementById('w_enabled').checked,
+      w_min:     parseInt(document.getElementById('w_min').value) || 0,
+      w_max:     parseInt(document.getElementById('w_max').value) || 0,
+      w_step:    parseInt(document.getElementById('w_step').value) || 1,
+      d_enabled: document.getElementById('d_enabled').checked,
+      d_min:     parseInt(document.getElementById('d_min').value) || 0,
+      d_max:     parseInt(document.getElementById('d_max').value) || 0,
+      d_step:    parseInt(document.getElementById('d_step').value) || 1,
+      h_enabled: document.getElementById('h_enabled').checked,
+      h_min:     parseInt(document.getElementById('h_min').value) || 0,
+      h_max:     parseInt(document.getElementById('h_max').value) || 0,
+      h_step:    parseInt(document.getElementById('h_step').value) || 1,
+    };
+  }
+
+  function validate(data) {
+    if (!data.nombre) return 'El nombre del módulo es obligatorio.';
+    const anyDim = data.w_enabled || data.d_enabled || data.h_enabled;
+    if (!anyDim) return null; // valid (no dimensions = single code)
+    for (const dim of ['w', 'd', 'h']) {
+      if (!data[dim + '_enabled']) continue;
+      if (data[dim + '_min'] > data[dim + '_max'])
+        return `El mínimo de ${dim.toUpperCase()} no puede ser mayor al máximo.`;
+      if (data[dim + '_step'] < 1)
+        return `El intervalo de ${dim.toUpperCase()} debe ser al menos 1.`;
+    }
+    return null;
+  }
+
+  // Generate codes locally (mirrors Ruby logic for preview)
+  function generateCodesLocal(data) {
+    const nombre  = data.nombre;
+    const herraje = data.herraje;
+
+    function dimRange(dim) {
+      if (!data[dim + '_enabled']) return [null];
+      const min = data[dim + '_min'], max = data[dim + '_max'], step = data[dim + '_step'];
+      if (min > max || step < 1) return [null];
+      const vals = [];
+      for (let v = min; v <= max; v += step) vals.push(v);
+      return vals.length ? vals : [null];
+    }
+
+    const ws = dimRange('w'), ds = dimRange('d'), hs = dimRange('h');
+    const codes = [];
+    for (const h of hs) {
+      for (const d of ds) {
+        for (const w of ws) {
+          const parts = [nombre];
+          if (herraje) parts.push(herraje);
+          if (w !== null) parts.push(w + 'W');
+          if (d !== null) parts.push(d + 'D');
+          if (h !== null) parts.push(h + 'H');
+          codes.push(parts.join(' '));
+        }
+      }
+    }
+    return codes;
+  }
+
+  function schedulePreview() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runPreview, 250);
+  }
+
+  function runPreview() {
+    const data = getFormData();
+    const err  = validate(data);
+    const errEl = document.getElementById('error-msg');
+
+    if (err) {
+      errEl.textContent = err;
+      errEl.style.display = 'block';
+      setPreview([], 0);
+      return;
+    }
+    errEl.style.display = 'none';
+
+    if (!data.nombre) {
+      setPreview([], 0);
+      return;
+    }
+
+    const codes = generateCodesLocal(data);
+    currentCodes = codes;
+    setPreview(codes, codes.length);
+
+    // Also call Ruby for server-side confirmation (optional, keeps in sync)
+    if (window.sketchup) window.sketchup.preview(data);
+  }
+
+  function setPreview(codes, total) {
+    currentCodes = codes;
+    const el    = document.getElementById('preview-list');
+    const badge = document.getElementById('count-badge');
+    const btns  = [document.getElementById('btn-csv'), document.getElementById('btn-tags')];
+
+    if (!codes || codes.length === 0) {
+      el.innerHTML = '<span class="preview-empty">Configura un nombre y activa al menos una dimensión.</span>';
+      badge.textContent = '0 códigos';
+      badge.className = 'count-badge empty';
+      btns.forEach(b => b.disabled = true);
+      return;
+    }
+
+    const visible = codes.slice(0, MAX_PREVIEW);
+    let html = visible.join('\n');
+    if (total > MAX_PREVIEW) {
+      html += `\n<span class="preview-more">… y ${total - MAX_PREVIEW} más</span>`;
+    }
+    el.innerHTML = html;
+
+    badge.textContent = `${total} código${total !== 1 ? 's' : ''}`;
+    badge.className = 'count-badge';
+    btns.forEach(b => b.disabled = false);
+  }
+
+  function doGenCSV() {
+    const data = getFormData();
+    const err  = validate(data);
+    if (err) { document.getElementById('error-msg').textContent = err; document.getElementById('error-msg').style.display = 'block'; return; }
+    if (window.sketchup) window.sketchup.generate_csv(data);
+  }
+
+  function doCreateTags() {
+    const data = getFormData();
+    const err  = validate(data);
+    if (err) { document.getElementById('error-msg').textContent = err; document.getElementById('error-msg').style.display = 'block'; return; }
+    if (window.sketchup) window.sketchup.create_tags(data);
+  }
+
+  // Initial preview
+  schedulePreview();
+</script>
+</body>
+</html>
